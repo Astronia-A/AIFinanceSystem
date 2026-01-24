@@ -47,7 +47,7 @@ ollama pull bge-m3
 ```
 
 > **注意**：
-> 1、请确保 Ollama 服务在后台运行（默认端口 11434）。
+> 1、请确保 Ollama 服务在后台运行（默认端口 11434）。<br>
 > 2、该系统支持模型切换，并且支持模型自动读取。如需使用模型切换功能请自行从ollama拉去模型（例如：Yi:6b)
 
 ---
@@ -168,7 +168,7 @@ Project/
 本项目集成了 **魔珐星云 (Magic Nebula)** 的数字人 SDK。
 *   **SDK 版权**：数字人驱动相关的 SDK 文件（如 `xmovAvatar` 相关 JS 库）版权归 **上海魔珐信息科技有限公司** 所有。
 *   **使用限制**：本项目的开源协议**不包含**魔珐星云 SDK 的授权。如需在商业产品中使用数字人功能，请务必前往 [魔珐星云官网](https://www.xingyun3d.com/) 申请合法的 AppID 和 Secret，并遵守其服务条款。
-*   **敬告**:本项目的APP ID APP Secret均为本人测试账号的id。API信息将于2026-2-1删去。如需使用数字人驱动功能，请自行前往[魔珐星云官网](https://www.xingyun3d.com/) 申请合法的 AppID 和 Secret，并遵守其服务条款。
+*   **敬告**：本项目的APP ID APP Secret均为本人测试账号的id。API信息将于2026-2-1删去。如需使用数字人驱动功能，请自行前往[魔珐星云官网](https://www.xingyun3d.com/) 申请合法的 AppID 和 Secret，并遵守其服务条款。
 
 ### 2. 模型使用说明
 本项目默认使用的 AI 模型（Qwen2.5, Yi, BGE-M3 等）均由 Ollama 运行。
