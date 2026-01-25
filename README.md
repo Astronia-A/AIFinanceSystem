@@ -150,6 +150,9 @@ Project/
 3.  **知识库无法上传？**
     *   确认上传的是 `.pdf` 或 `.txt` 文件。
     *   确认后端安装了 `pypdf` 和 `faiss-cpu` 库。
+4.  **后端提示ollama 未启动/未下载？**
+    *   Ollama长期闲置会自动关闭。可通过任务管理器关闭Ollama后重新启动
+    *   控制台操作，按下Crtl+D结束，再重新加载模型（如 ollama run qwen2.5:7b)
 
 ---
 
