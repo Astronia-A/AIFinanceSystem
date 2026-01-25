@@ -59,7 +59,7 @@ function handleClick(id: string) {
 .side-menu {
   width: 240px;
   height: 100vh;
-  background: #1e293b; /* 深色背景 */
+  background: #1e293b; 
   color: white;
   display: flex;
   flex-direction: column;

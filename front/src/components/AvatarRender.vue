@@ -39,21 +39,10 @@ const containerId = computed(() => avatarService.getContainerId())
   position: relative;
   border-right: 1px solid #e0e0e0;
   
-  /* === 修改点：设置背景图片 === */
-  /* 之前的代码可能是 background: #f5f5f5; */
-  
-  /* 1. 引用 public 目录下的图片 */
+  /* === 设置背景图片 === */
   background-image: url('/background.png'); 
-  
-  /* 2. 让图片铺满且不变形 (Cover 模式) */
   background-size: cover;
-  
-  /* 3. 图片居中显示 */
   background-position: center;
-  
-  /* 4. (可选) 如果图片太亮，可以叠加一层深色滤镜，让数字人更清晰 */
-  /* background-blend-mode: multiply; */
-  /* background-color: rgba(0,0,0,0.3); */
 }
 .sdk-container {
   width: 100%;

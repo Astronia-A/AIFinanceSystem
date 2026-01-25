@@ -1,6 +1,6 @@
 <template>
   <div class="dashboard-container">
-    <!-- 顶部卡片栏 (保持不变) -->
+    <!-- 顶部卡片栏 -->
     <div class="stats-grid">
       <div class="stat-card blue">
         <div class="label">总收入</div>
@@ -28,12 +28,10 @@
     <!-- 图表区域 -->
     <div class="chart-section">
       <div class="chart-header">
-        <h3>📅 收支趋势分析</h3>
-        
+        <h3>📅 收支趋势分析</h3>        
         <!-- 筛选工具栏 -->
-        <div class="filter-toolbar">
-          
-          <!-- 修改点：使用 Select 下拉框替换原先的 Button 组 -->
+        <div class="filter-toolbar">          
+          <!-- 使用 Select 下拉框 -->
           <div class="select-wrapper">
             <select 
               v-model="currentPreset" 
@@ -120,7 +118,6 @@ async function fetchData() {
   }
 }
 
-// === 下拉框变更处理 ===
 function handlePresetChange() {
   applyPreset(currentPreset.value)
 }
@@ -221,7 +218,7 @@ function formatSmartNumber(num: number, key: string) {
 </script>
 
 <style scoped>
-/* 保持原有的卡片样式 */
+/* 卡片样式 */
 .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 24px; }
 .stat-card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border-left: 5px solid #ccc; transition: transform 0.2s; }
 .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
@@ -243,7 +240,7 @@ function formatSmartNumber(num: number, key: string) {
 .filter-toolbar { display: flex; align-items: center; gap: 15px; }
 .divider { color: #e2e8f0; font-size: 14px; }
 
-/* === 修改：下拉框样式 === */
+/* 下拉框样式 */
 .preset-select {
   padding: 6px 12px;
   border: 1px solid #cbd5e1;

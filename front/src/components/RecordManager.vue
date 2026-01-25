@@ -52,7 +52,7 @@
           <span class="total-count">共 {{ displayRecords.length }} 条记录</span>
         </div>
         
-        <!-- 新增：时间筛选工具栏 (复用 Dashboard 样式) -->
+        <!-- 时间筛选工具栏  -->
         <div class="filter-toolbar">
           <select v-model="currentPreset" @change="handlePresetChange" class="preset-select">
             <option v-for="p in presets" :key="p.days" :value="p.days">{{ p.label }}</option>
@@ -77,23 +77,19 @@
               <th @click="handleSort('id')" class="sortable-th">
                 ID 
                 <span class="sort-icon">{{ getSortIcon('id') }}</span>
-              </th>
-              
+              </th>              
               <!-- 可排序的表头：日期 -->
               <th @click="handleSort('record_date')" class="sortable-th">
                 日期
                 <span class="sort-icon">{{ getSortIcon('record_date') }}</span>
-              </th>
-              
+              </th>              
               <th>项目</th>
-              <th>收/支</th>
-              
+              <th>收/支</th>              
               <!-- 可排序的表头：金额 -->
               <th @click="handleSort('amount')" class="sortable-th">
                 金额
                 <span class="sort-icon">{{ getSortIcon('amount') }}</span>
-              </th>
-              
+              </th>              
               <th>操作</th>
             </tr>
           </thead>
@@ -101,7 +97,6 @@
             <tr v-if="displayRecords.length === 0">
               <td colspan="6" class="empty-tip">暂无数据，请先录入或调整筛选条件</td>
             </tr>
-            <!-- 注意：这里遍历的是 displayRecords 而不是 records -->
             <tr v-for="row in displayRecords" :key="row.id">
               <td>#{{ row.id }}</td>
               <td>{{ row.record_date }}</td>
@@ -150,7 +145,7 @@ const presets = [
   { label: '最近一年', days: 365 },
 ]
 
-// === 3. 核心：计算属性（过滤 + 排序） ===
+// === 3.计算属性（过滤 + 排序） ===
 const displayRecords = computed(() => {
   // 1. 过滤步骤
   let result = records.value.filter(item => {
@@ -162,14 +157,12 @@ const displayRecords = computed(() => {
   result.sort((a, b) => {
     let valA = a[sortKey.value]
     let valB = b[sortKey.value]
-
-    // 特殊处理：金额需要转数字比较，否则 '100' < '20'
+    // 金额处理
     if (sortKey.value === 'amount' || sortKey.value === 'id') {
       valA = parseFloat(valA)
       valB = parseFloat(valB)
     }
-    // 日期是字符串，直接比较即可 (YYYY-MM-DD 格式支持字典序)
-
+    // 日期处理
     if (valA < valB) return sortOrder.value === 'asc' ? -1 : 1
     if (valA > valB) return sortOrder.value === 'asc' ? 1 : -1
     return 0
@@ -195,7 +188,7 @@ function getSortIcon(key: string) {
   return sortOrder.value === 'asc' ? '↑' : '↓' // 选中状态
 }
 
-// === 5. 筛选逻辑 (复用 Dashboard 逻辑) ===
+// === 5. 筛选逻辑 ===
 function applyPreset(days: number) {
   currentPreset.value = days
   if (days === 9999) {
@@ -305,7 +298,7 @@ onMounted(() => {
 .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #f1f5f9; padding-bottom: 15px; }
 .panel-header h3 { margin: 0; color: #334155; }
 
-/* 表格头部布局 (带筛选) */
+/* 表格头部布局  */
 .panel-header-row { 
   display: flex; justify-content: space-between; align-items: center; 
   margin-bottom: 20px; border-bottom: 1px solid #f1f5f9; padding-bottom: 15px; 
@@ -313,7 +306,7 @@ onMounted(() => {
 .left-info h3 { margin: 0; margin-bottom: 4px; color: #334155; }
 .total-count { font-size: 12px; color: #94a3b8; }
 
-/* 筛选工具栏样式 (与 Dashboard 统一) */
+/* 筛选工具栏样式*/
 .filter-toolbar { display: flex; align-items: center; gap: 15px; }
 .preset-select { padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; cursor: pointer; }
 .divider { color: #e2e8f0; font-size: 14px; }

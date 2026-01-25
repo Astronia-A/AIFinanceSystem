@@ -1,8 +1,7 @@
 <template>
   <div class="kb-container">
-    <div class="card upload-card">
-      
-      <!-- 新增：状态提示条 -->
+    <div class="card upload-card">      
+      <!-- 状态提示条 -->
       <div v-if="kbExists" class="status-banner success">
         <span class="status-icon">✅</span>
         <div class="status-text">
@@ -17,14 +16,12 @@
           <small>建议上传财务准则或审计报告，以增强 AI 分析能力。</small>
         </div>
       </div>
-
       <div class="icon-header">📚</div>
       <h2>上传财务知识库</h2>
       <p class="desc">
         请上传 PDF 或 TXT 文件（如企业审计准则、内部财务规定等）。<br>
         AI 将会阅读这些文件，并建立本地向量索引。
       </p>
-
       <!-- 上传区域 -->
       <div 
         class="drop-zone" 
@@ -48,7 +45,6 @@
           <p>正在解析并建立向量索引，请稍候...</p>
         </div>
       </div>
-
       <!-- 操作反馈消息 -->
       <div v-if="message" :class="['msg-box', msgType]">
         {{ message }}
@@ -59,18 +55,14 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-
 const API_URL = 'http://localhost:8000'
-
 const fileInput = ref<HTMLInputElement | null>(null)
 const isUploading = ref(false)
 const message = ref('')
 const msgType = ref('info')
 
-// 新增：知识库存在状态
+// === 检查知识库存在状态 ===
 const kbExists = ref(false)
-
-// === 1. 检查状态 ===
 async function checkStatus() {
   try {
     const res = await fetch(`${API_URL}/api/knowledge/status`)
@@ -83,26 +75,22 @@ async function checkStatus() {
   }
 }
 
-// === 2. 上传逻辑 ===
+// === 知识库上传逻辑 ===
 async function uploadFile(file: File) {
   if (!file.name.endsWith('.pdf') && !file.name.endsWith('.txt')) {
     showMessage('只支持 PDF 或 TXT 格式', 'error')
     return
   }
-
   isUploading.value = true
-  message.value = ''
-  
+  message.value = ''  
   const formData = new FormData()
   formData.append('file', file)
-
   try {
     const res = await fetch(`${API_URL}/api/upload_knowledge`, {
       method: 'POST',
       body: formData
     })
-    
-    if (res.ok) {
+        if (res.ok) {
       showMessage(`✅ "${file.name}" 上传并索引成功！`, 'success')
       // 上传成功后，刷新状态，变成“已存在”
       kbExists.value = true
@@ -116,7 +104,6 @@ async function uploadFile(file: File) {
     if(fileInput.value) fileInput.value.value = ''
   }
 }
-
 function triggerFileInput() { fileInput.value?.click() }
 function handleFileSelect(event: any) { const file = event.target.files[0]; if(file) uploadFile(file); }
 function handleDrop(event: any) { const file = event.dataTransfer.files[0]; if(file) uploadFile(file); }
@@ -140,9 +127,9 @@ onMounted(() => {
   position: relative; overflow: hidden;
 }
 
-/* === 新增：状态横幅样式 === */
+/* === 状态横幅样式 === */
 .status-banner {
-  margin: -40px -40px 30px -40px; /* 抵消父容器 padding */
+  margin: -40px -40px 30px -40px;
   padding: 15px 20px;
   display: flex; align-items: center; gap: 15px; text-align: left;
 }
@@ -154,7 +141,6 @@ onMounted(() => {
 .status-text strong { font-size: 15px; margin-bottom: 2px; }
 .status-text small { opacity: 0.8; font-size: 12px; }
 
-/* 其他样式保持不变 */
 .icon-header { font-size: 48px; margin-bottom: 20px; }
 h2 { color: #1e293b; margin-bottom: 10px; }
 .desc { color: #64748b; line-height: 1.6; margin-bottom: 30px; font-size: 14px; }

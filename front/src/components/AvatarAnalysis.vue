@@ -2,18 +2,16 @@
   <div class="avatar-overlay">
     <!-- 关闭按钮 -->
     <button class="close-btn" @click="handleClose">✖ 结束咨询</button>
-
     <div class="content-container">
       <!-- 左侧：交互控制台 -->
       <div class="control-panel">
         <div class="panel-header">
           <div class="header-title">
             <h3>🤖 AI 审计师</h3>
-            <!-- 状态指示点 (可选，辅助显示) -->
             <span class="status-dot" :class="{ online: appState.avatar.connected }"></span>
           </div>
           
-          <!-- === 修改点 1: 连接/断开控制按钮 === -->
+          <!-- 连接/断开控制按钮 -->
           <button 
             class="conn-btn" 
             :class="appState.avatar.connected ? 'btn-disconnect' : 'btn-connect'"
@@ -49,13 +47,11 @@
 
         <!-- 聊天记录区 -->
         <div class="chat-history" ref="chatBox">
-          <!-- === 修改点 2: 欢迎语颜色修复 === -->
           <div v-if="chatMessages.length === 0" class="empty-chat">
             <div class="welcome-icon"></div>
             <p>👋您好，我是您的专属数字财务顾问。</p>
             <p>请点击上方按钮连接我，并设定分析时间段。</p>
-          </div>
-          
+          </div>          
           <div 
             v-for="(msg, index) in chatMessages" 
             :key="index" 
@@ -66,8 +62,7 @@
             <div class="message-bubble">
               <div class="bubble-content">{{ msg.content }}</div>
             </div>
-          </div>
-          
+          </div>          
           <!-- Loading 状态 -->
           <div v-if="isLoading" class="message-item ai">
             <div class="avatar-icon">🤖</div>
@@ -76,7 +71,6 @@
             </div>
           </div>
         </div>
-
         <!-- 输入区 -->
         <div class="input-area">
           <div class="quick-prompts">
@@ -130,13 +124,13 @@ const emit = defineEmits(['close'])
 const API_URL = 'http://localhost:8000'
 
 // 状态定义
-const selectedModel = ref('qwen2.5:7b')
+const selectedModel = ref('Qwen2.5:7b')
 const models = ref<string[]>([])
 const dateRange = reactive({ start: '', end: '' })
 const userInput = ref('')
 const isLoading = ref(false)
 const isSpeaking = ref(false)
-const isConnecting = ref(false) // 新增：连接中状态防止重复点击
+const isConnecting = ref(false) 
 
 // 消息列表
 interface ChatMsg { role: 'user' | 'ai'; content: string }
@@ -156,7 +150,7 @@ onMounted(() => {
   // 移除自动连接逻辑
 })
 
-// === 修改点 3: 连接/断开切换逻辑 ===
+// === 连接/断开切换逻辑 ===
 async function toggleConnection() {
   if (isConnecting.value) return
   isConnecting.value = true
@@ -245,18 +239,13 @@ async function fetchModels() {
     const res = await fetch(`${API_URL}/api/models`)
     const data = await res.json()
     if (data.models) models.value = data.models
-    
-    // === 核心修改：强制优先选中 qwen2.5:7b ===
-    const targetModel = 'Qwen2.5:7b'
-    
-    // 1. 如果列表里包含 qwen2.5:7b，直接选中它
+    const targetModel = 'Qwen2.5:7b'    
+    // 默认使用Qwen2.5:7b
     if (models.value.includes(targetModel)) {
       selectedModel.value = targetModel
     } 
-    // 2. 如果列表里没有它，但在初始化时我们已经设置了它是默认值，
-    //    这里不要轻易覆盖，除非列表非空且确实找不到 targetModel
     else if (models.value.length > 0) {
-       // 只有当实在找不到 Qwen 时，才被迫选第一个（例如 yi:6b）
+       // 当Qweb2.5不存在时，选择其他模型
        selectedModel.value = models.value[0]
     }
   } catch(e) { console.error(e) }
@@ -357,10 +346,9 @@ onUnmounted(() => stopSpeaking())
   display: flex; flex-direction: column; gap: 15px;
   background: #1a1a1a;
 }
-/* === 欢迎语样式修复：改为白色，居中 === */
 .empty-chat { 
   text-align: center; 
-  color: #fff; /* 改为白色 */
+  color: #fff; 
   margin-top: 60px; 
   font-size: 15px; 
   opacity: 0.9;
