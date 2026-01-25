@@ -11,6 +11,7 @@ import os
 import time
 import requests
 import traceback
+import main
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
@@ -49,21 +50,22 @@ AGENT_SYSTEM_PROMPT = """
 4. **简洁性**：回答控制在 100-200 字以内，直接说重点。你不得与用户展开无关互动，如调侃等行为。
 6. **回答相关性**：你的回答需严格遵守用户的指令。但是你也应该铭记自身作为数字财务专家的身份。用户发送无关指令（如你好、天气怎么样等等）需礼貌提示用户自身作为数字财务专家可提供专业分析
 """
-
 # 用户 RAG 模板: 结合 财务数据 + 知识库上下文 + 用户问题
 AGENT_USER_TEMPLATE = """
-【财务数据摘要】(这是你分析的事实依据):
+【财务数据摘要】(事实依据):
 {data_summary}
 
-【参考知识库】(仅作为判断标准，不要复述):
+【参考知识库】(仅作参考):
 {context}
 
-【用户指令】:
+【对话历史】(上下文背景):
+{history_str}
+
+【当前用户指令】:
 {user_query}
 
-请以财务顾问的身份回答用户指令：
+请基于数据和上下文，以财务顾问身份回答：
 """
-
 # 无 RAG 兜底模板: 仅基于财务数据分析，不涉及知识库
 NO_RAG_PROMPT = """
 你是一位专业的财务审计师。请根据以下的【财务数据摘要】进行分析。
@@ -74,7 +76,6 @@ NO_RAG_PROMPT = """
 
 请给出分析或建议（中文）：
 """
-
 
 def get_available_models():
     """
@@ -101,7 +102,6 @@ def get_available_models():
     except Exception as e:
         print(f"❌ Ollama 连接失败 (获取模型列表): {e}")
     return ["Qwen2.5:7b"]  # 兜底
-
 
 def init_knowledge_base(file_path):
     """
@@ -158,75 +158,76 @@ def load_existing_db():
         except Exception as e:
             print(f"⚠️ 加载本地索引失败: {e}")
 
-
-def run_analysis(model_name, data_summary, user_query):
+def run_analysis(model_name, data_summary, user_query, chat_history=None):
     """
-    Agent 核心分析函数。
-    逻辑：
-    1. 尝试加载知识库
-    2. 初始化指定的大语言模型 (LLM)
-    3. 判断是否存在知识库：
-       - 存在 (RAG模式): 检索相关文档 -> 结合数据与问题 -> 生成回答
-       - 不存在 (纯LLM模式): 仅根据财务数据和问题 -> 生成回答
-    Args:
-        model_name (str): 选用的 Ollama 模型名称
-        data_summary (str): 数据库生成的财务统计摘要文本
-        user_query (str): 用户的具体问题或指令
-    Returns:
-        str: AI 生成的分析结果
+    Agent 模式分析函数
+    :param model_name: 模型名称
+    :param data_summary: 财务数据摘要
+    :param user_query: 用户问题
+    :param chat_history: 历史对话记录 (List[Dict])
     """
     global vector_store
-    print(f"🚀 Agent 启动 | 模型: {model_name}")
+    # 如果没传 history，初始化为空列表
+    if chat_history is None:
+        chat_history = []
+    # --- 1. 格式化历史记录 ---
+    #只取最近的 6 轮对话，防止 Prompt 过长超出模型窗口
+    recent_history = chat_history[-6:]
+    history_str = "无（这是第一轮对话）"
+    if recent_history:
+        history_str = ""
+        for msg in recent_history:
+            # 将 role 转换为中文友好名称
+            role = "用户" if msg['role'] == 'user' else "AI顾问"
+            content = msg['content']
+            history_str += f"{role}: {content}\n"
+    print(f"🚀 Agent 启动 | 模型: {model_name} | 携带历史上下文长度: {len(recent_history)}")
     try:
-        # 1. 确保知识库已尝试加载
+        # 1. 知识库加载
         if vector_store is None:
             load_existing_db()
-        # 2. 初始化 LLM 配置
+        # 2. 初始化 LLM
         llm = OllamaLLM(
             model=model_name,
             base_url=OLLAMA_URL,
-            num_ctx=4096,  # 上下文窗口大小，需根据显存调整
+            num_ctx=4096,
             timeout=120,
-            temperature=0.7
+            temperature=0.6
         )
-
-        # 3. 构建 RAG Chain (检索增强生成)
+        # 3. 准备 Prompt 变量
+        input_args = {
+            "user_query": user_query,
+            "data_summary": data_summary,
+            "history_str": history_str,
+            # RAG 检索时通常使用 input 字段
+            "input": user_query
+        }
+        # 4. 执行链
         if vector_store:
-            # 定义检索器：只取相关性最高的 2 个片段，避免上下文过长
+            # 检索器：只取最相关的 2 条
             retriever = vector_store.as_retriever(search_kwargs={"k": 2})
-            # 组合 Prompt：System + Human
             prompt = ChatPromptTemplate.from_messages([
                 ("system", AGENT_SYSTEM_PROMPT),
                 ("human", AGENT_USER_TEMPLATE)
             ])
-            # create_stuff_documents_chain 会自动将检索到的文档填充至 {context} 变量
             question_answer_chain = create_stuff_documents_chain(llm, prompt)
             rag_chain = create_retrieval_chain(retriever, question_answer_chain)
-            # 执行链式调用
-            res = rag_chain.invoke({
-                "input": user_query,  # 用于检索器搜索文档
-                "user_query": user_query,  # 传递给 Prompt
-                "data_summary": data_summary  # 传递给 Prompt
-            })
+
+            res = rag_chain.invoke(input_args)
             return res["answer"]
         else:
-            # 无知识库模式 (纯 LLM 分析)
+            # 无知识库模式 (纯 LLM)
+            # 替换模板中的 {context} 为 "无" 以免报错
             prompt = ChatPromptTemplate.from_messages([
                 ("system", AGENT_SYSTEM_PROMPT),
-                ("human", "【财务数据摘要】:\n{data_summary}\n\n【用户指令】:\n{user_query}")
+                ("human", AGENT_USER_TEMPLATE.replace("{context}", "无"))
             ])
-            # 使用 LCEL 语法构建简单链
             chain = prompt | llm
-            res = chain.invoke({
-                "data_summary": data_summary,
-                "user_query": user_query
-            })
+            res = chain.invoke(input_args)
             return res
-
     except Exception as e:
         traceback.print_exc()
         return f"大脑思考时出现错误: {str(e)}"
-
 
 def check_kb_exists():
     """

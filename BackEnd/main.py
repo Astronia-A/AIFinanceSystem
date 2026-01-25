@@ -3,14 +3,19 @@ import shutil
 import os
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import Optional
+from pyarrow import nulls
+from pydantic import BaseModel,Field
 from fastapi.responses import StreamingResponse
 from io import BytesIO
+from typing import Optional, List, Dict
 import pandas as pd
+from typing import Optional, List, Dict
+# 【修改点 1】确保引入 Field
+from pydantic import BaseModel, Field
 # 自定义模块：数据库操作与AI引擎
 import database
 import ai_engine
+
 # 初始化 FastAPI 应用实例
 app = FastAPI(title="财务数字人后端", description="基于本地大模型的AI财务分析系统后端API")
 
@@ -49,6 +54,16 @@ class AnalysisRequest(BaseModel):
     start_date: Optional[str] = None  # 分析起始日期
     end_date: Optional[str] = None  # 分析结束日期
 
+# === 修改点：更新请求模型 ===
+class AnalysisRequest(BaseModel):
+    model_name: str
+    user_query: str
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+
+    # ❌ 错误写法: history: List[Dict[str, str]] = []
+    # ✅ 正确写法: 使用 default_factory=list
+    history: List[Dict[str, str]] =None
 # --- 接口定义 ---
 @app.get("/api/models")
 def get_models():
@@ -114,20 +129,24 @@ def chat_with_finance(req: AnalysisRequest):
     2. 将数据摘要、用户问题、选定的模型传递给 AI 引擎
     3. 返回 AI 生成的分析结果
     """
-    # 1. 数据准备：根据时间范围获取财务摘要
+    # 1. 确定时间范围
     if req.start_date and req.end_date:
         financial_summary = database.get_filtered_financial_summary(req.start_date, req.end_date)
     else:
-        # 若未指定时间，获取全量数据摘要或默认范围数据
         financial_summary = database.get_financial_summary_text()
 
-    print(f"📊 数据摘要准备完毕，长度: {len(financial_summary)} 字符")
+    # 2. 【关键修正】处理 history 为 None 的情况
+    # 如果前端没传 history 或者传了 null，这里将其转为空列表 []
+    safe_history = req.history if req.history is not None else []
 
-    # 2. 调用 AI 引擎生成回答
+    print(f"📊 收到请求 | 历史消息数: {len(safe_history)} | 当前问题: {req.user_query}")
+
+    # 3. 调用 AI Agent
     response_text = ai_engine.run_analysis(
         model_name=req.model_name,
         data_summary=financial_summary,
-        user_query=req.user_query
+        user_query=req.user_query,
+        chat_history=safe_history  # 使用处理过的 safe_history
     )
 
     return {"reply": response_text}
