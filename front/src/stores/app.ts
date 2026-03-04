@@ -8,8 +8,9 @@ import { llmService } from '../services/llm'
 // 应用状态
 export const appState = reactive<AppState>({
   avatar: {
-    appId: '87f59143753f460f83bb6ceb89f859ac',        // <--- 硬编码
-    appSecret: '0e16e14b8ff145db868f2ed84a408e7e', // <--- 硬编码
+    //此处请输入自己的数字人id 密码等信息！
+    appId: '',        // <--- 硬编码
+    appSecret: '', // <--- 硬编码
     connected: false,
     instance: null
   },
