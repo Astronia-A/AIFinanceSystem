@@ -6,11 +6,8 @@ const API_BASE_URL = 'http://localhost:8000';
 
 class LlmService {
   
-  // 仅作占位，防止外部调用报错
-  private initClient(config: LlmConfig): void {}
-
   /**
-   * 普通发送 (保留接口)
+   * 发送消息给 Python RAG 后端
    */
   async sendMessage(config: LlmConfig, userMessage: string): Promise<string | null> {
     try {
@@ -31,7 +28,7 @@ class LlmService {
 
     } catch (error) {
       console.error('RAG Error:', error);
-      return '抱歉，财务分析系统暂时无法连接。';
+      return '抱歉，财务分析系统暂时无法连接，请检查后端 Python 服务是否启动。';
     }
   }
 
@@ -44,7 +41,6 @@ class LlmService {
     const fullText = await this.sendMessage(config, userMessage);
     
     // 2. 创建一个异步生成器，把结果一次性吐出来
-    // 这样 app.ts 会把它当成一个巨大的"chunk"，然后内部的 splitSentence 依然能正常工作
     return (async function* () {
       if (fullText) {
         yield fullText; 

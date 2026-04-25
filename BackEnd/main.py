@@ -4,15 +4,13 @@ import os
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pyarrow import nulls
-from pydantic import BaseModel,Field
 from fastapi.responses import StreamingResponse
 from io import BytesIO
-from typing import Optional, List, Dict
 import pandas as pd
 from typing import Optional, List, Dict
-# 【修改点 1】确保引入 Field
 from pydantic import BaseModel, Field
-# 自定义模块：数据库操作与AI引擎
+from fastapi.responses import StreamingResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 import database
 import ai_engine
 
@@ -54,16 +52,14 @@ class AnalysisRequest(BaseModel):
     start_date: Optional[str] = None  # 分析起始日期
     end_date: Optional[str] = None  # 分析结束日期
 
-# === 修改点：更新请求模型 ===
+# === 更新请求模型 ===
 class AnalysisRequest(BaseModel):
     model_name: str
     user_query: str
     start_date: Optional[str] = None
     end_date: Optional[str] = None
-
-    # ❌ 错误写法: history: List[Dict[str, str]] = []
-    # ✅ 正确写法: 使用 default_factory=list
     history: List[Dict[str, str]] =None
+
 # --- 接口定义 ---
 @app.get("/api/models")
 def get_models():
@@ -220,8 +216,23 @@ async def batch_upload(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"解析文件失败: {str(e)}")
 
 
+if os.path.exists("dist"):
+    # 挂载 assets 文件夹 (JS/CSS等静态资源)
+    app.mount("/assets", StaticFiles(directory="dist/assets"), name="assets")
+
+    # 捕获所有其他非 API 请求，全部返回 index.html
+    @app.get("/{full_path:path}")
+    async def serve_vue_app(full_path: str):
+        # 如果请求的刚好是根目录，或者页面路由，返回前端入口文件
+        # 如果请求了某个具体的静态文件(如 favicon.ico)，返回该文件
+        file_path = os.path.join("dist", full_path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        return FileResponse("dist/index.html")
+else:
+    print("⚠️ 警告: 未找到前端 dist 文件夹。系统将仅提供 API 服务。")
+
 if __name__ == "__main__":
     import uvicorn
-
     # 启动应用服务
     uvicorn.run(app, host="127.0.0.1", port=8000)

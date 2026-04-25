@@ -1,6 +1,6 @@
 import { reactive, ref } from 'vue'
-import type { AppState, AvatarConfig, AsrConfig, LlmConfig } from '../types'
-import { LLM_CONFIG, APP_CONFIG } from '../constants'
+import type { AppState } from '../types'
+import { APP_CONFIG } from '../constants'
 import { validateConfig, delay, generateSSML } from '../utils'
 import { avatarService } from '../services/avatar'
 import { llmService } from '../services/llm'
@@ -9,8 +9,8 @@ import { llmService } from '../services/llm'
 export const appState = reactive<AppState>({
   avatar: {
     //此处请输入自己的数字人id 密码等信息！
-    appId: '',        // <--- 硬编码
-    appSecret: '', // <--- 硬编码
+    appId: '',
+    appSecret: '',
     connected: false,
     instance: null
   },
@@ -73,7 +73,6 @@ function splitSentence(text: string): string[] {
     // 处理英文字母序列（单词）
     else if ((char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z')) {
       // 扫描整个英文单词
-      const start = i
       i++
       while (i < n && ((text[i] >= 'a' && text[i] <= 'z') || (text[i] >= 'A' && text[i] <= 'Z'))) {
         i++
@@ -264,12 +263,8 @@ export class AppStore {
    * @param callbacks - 回调函数集合
    * @returns {void}
    */
-  startVoiceInput(callbacks: {
-    onFinished: (text: string) => void
-    onError: (error: any) => void
-  }): void {
+  startVoiceInput(): void { //本项目不采用语音分析
     appState.asr.isListening = true
-    // ASR逻辑由组件处理，这里只更新状态
   }
 
   /**

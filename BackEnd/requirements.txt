@@ -1,0 +1,10 @@
+fastapi 
+uvicorn 
+python-multipart 
+pandas 
+openpyxl 
+langchain 
+langchain-community 
+langchain-ollama 
+faiss-cpu pypdf 
+requests
