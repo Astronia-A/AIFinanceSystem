@@ -19,20 +19,32 @@ from langchain_ollama import OllamaEmbeddings, OllamaLLM
 from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_openai import ChatOpenAI
 
 # --- 全局配置与常量定义 ---
 OLLAMA_URL = "http://127.0.0.1:11434"  # 本地 Ollama 服务地址
 DB_PATH = os.path.join(os.getcwd(), "faiss_index")  # 向量数据库本地持久化路径
 
-# --- 1. 安全初始化 Embedding 模型 ---
-try:
-    embeddings = OllamaEmbeddings(
-        model="bge-m3",
-        base_url=OLLAMA_URL
-    )
-except Exception as e:
-    print(f"⚠️ Embedding 初始化警告: {e}")
+# --- 1. 动态初始化 Embedding 模型(若采用API则不初始化 Embedding 模型) ---
+def check_ollama_alive():
+    try:
+        # 发送 1 秒超时的请求，如果没开 Ollama 会立刻报错拦截
+        res = requests.get(OLLAMA_URL, timeout=1)
+        return res.status_code == 200
+    except:
+        return False
+
+# 动态初始化 embeddings
+if check_ollama_alive():
+    try:
+        embeddings = OllamaEmbeddings(model="bge-m3", base_url=OLLAMA_URL)
+        print("✅ 检测到本地 Ollama，知识库 (RAG) 功能已激活。")
+    except Exception as e:
+        embeddings = None
+        print(f"⚠️ Ollama 异常: {e}")
+else:
     embeddings = None
+    print("⚠️ 未检测到本地 Ollama 服务。知识库向量检索功能已禁用，但不影响使用 API 进行数据分析。")
 
 # 全局向量数据库实例
 vector_store = None
@@ -158,53 +170,65 @@ def load_existing_db():
         except Exception as e:
             print(f"⚠️ 加载本地索引失败: {e}")
 
-def run_analysis(model_name, data_summary, user_query, chat_history=None):
+def run_analysis(model_name, data_summary, user_query, chat_history=[], use_custom_api=False, api_key=None,
+                 api_base=None):
     """
-    Agent 模式分析函数
-    :param model_name: 模型名称
-    :param data_summary: 财务数据摘要
-    :param user_query: 用户问题
-    :param chat_history: 历史对话记录 (List[Dict])
-    """
+        Agent 模式分析函数
+        :param model_name: 模型名称
+        :param data_summary: 财务数据摘要
+        :param user_query: 用户问题
+        :param chat_history: 历史对话记录 (List[Dict])
+        """
     global vector_store
-    # 如果没传 history，初始化为空列表
-    if chat_history is None:
-        chat_history = []
-    # --- 1. 格式化历史记录 ---
-    #只取最近的 6 轮对话，防止 Prompt 过长超出模型窗口
+    # --- 格式化历史记录 ---
     recent_history = chat_history[-6:]
     history_str = "无（这是第一轮对话）"
     if recent_history:
         history_str = ""
         for msg in recent_history:
-            # 将 role 转换为中文友好名称
             role = "用户" if msg['role'] == 'user' else "AI顾问"
             content = msg['content']
             history_str += f"{role}: {content}\n"
-    print(f"🚀 Agent 启动 | 模型: {model_name} | 携带历史上下文长度: {len(recent_history)}")
+
+    print(f"🚀 Agent 启动 | 模型: {model_name} | 云端API: {use_custom_api}")
+
     try:
-        # 1. 知识库加载
+        # 知识库装载
         if vector_store is None:
             load_existing_db()
-        # 2. 初始化 LLM
-        llm = OllamaLLM(
-            model=model_name,
-            base_url=OLLAMA_URL,
-            num_ctx=4096,
-            timeout=120,
-            temperature=0.6
-        )
-        # 3. 准备 Prompt 变量
+
+        # --- 动态初始化 LLM ---
+        if use_custom_api and api_key:
+            # 走云端 API
+            print("🌐 使用第三方云端大模型接口...")
+            llm = ChatOpenAI(
+                model_name=model_name,
+                api_key=api_key,
+                base_url=api_base if api_base else "https://api.openai.com/v1",
+                temperature=0.6,
+                timeout=60,
+                max_retries=2
+            )
+        else:
+            # 走本地 Ollama
+            print("🖥️ 使用本地 Ollama 大模型...")
+            llm = OllamaLLM(
+                model=model_name,
+                base_url=OLLAMA_URL,
+                num_ctx=4096,
+                timeout=120,
+                temperature=0.6
+            )
+        # 构建输入参数
         input_args = {
             "user_query": user_query,
             "data_summary": data_summary,
             "history_str": history_str,
-            # RAG 检索时通常使用 input 字段
             "input": user_query
         }
-        # 4. 执行链
+
+        # --- 3. 运行 Chain  ---
         if vector_store:
-            # 检索器：只取最相关的 2 条
             retriever = vector_store.as_retriever(search_kwargs={"k": 2})
             prompt = ChatPromptTemplate.from_messages([
                 ("system", AGENT_SYSTEM_PROMPT),
@@ -216,23 +240,26 @@ def run_analysis(model_name, data_summary, user_query, chat_history=None):
             res = rag_chain.invoke(input_args)
             return res["answer"]
         else:
-            # 无知识库模式 (纯 LLM)
-            # 替换模板中的 {context} 为 "无" 以免报错
             prompt = ChatPromptTemplate.from_messages([
                 ("system", AGENT_SYSTEM_PROMPT),
                 ("human", AGENT_USER_TEMPLATE.replace("{context}", "无"))
             ])
             chain = prompt | llm
+            # 清洗文本
             res = chain.invoke(input_args)
-            return res
+            # 兼容处理提取文本
+            if hasattr(res, 'content'):
+                return res.content  # ChatOpenAI 返回格式
+            return res  # Ollama 返回格式
+
     except Exception as e:
+        import traceback
         traceback.print_exc()
-        return f"大脑思考时出现错误: {str(e)}"
+        return f"思考出错: {str(e)}"
 
 def check_kb_exists():
     """
     检查知识库文件夹是否存在。
     用于前端判断显示状态。
     """
-    # DB_PATH 是之前定义的 faiss_index 目录路径
     return os.path.exists(DB_PATH) and os.path.isdir(DB_PATH)

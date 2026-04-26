@@ -31,7 +31,6 @@ export interface LlmConfig {
   apiKey?: string
   baseURL?: string
 }
-
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant'
   content: string
@@ -69,6 +68,9 @@ export interface AppState {
   llm: {
     model: string
     apiKey?: string
+    useCustomApi?: boolean
+    apiBase?: string
+    customModel?: string
   }
   
   // UI状态

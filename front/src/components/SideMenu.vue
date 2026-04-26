@@ -41,7 +41,7 @@ const menuItems = [
   { id: 'dashboard', label: '收支总览', icon: '' },
   { id: 'records', label: '数据录入', icon: '' },
   { id: 'knowledge', label: '知识库录入', icon: '' },
-  { id: 'ai-analysis', label: 'AI 深度分析', icon: '' } // 特殊项
+  { id: 'ai-analysis', label: 'AI 深度分析', icon: '' } 
 ]
 
 function handleClick(id: string) {

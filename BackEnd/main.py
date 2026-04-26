@@ -44,21 +44,18 @@ class RecordItem(BaseModel):
 
 class AnalysisRequest(BaseModel):
     """
-    AI 分析请求数据模型
-    定义前端发送给 AI 的参数结构
+        AI 分析请求数据模型
+        定义前端发送给 AI 的参数结构
     """
-    model_name: str  # 选用的本地大模型名称 (Ollama)
-    user_query: Optional[str] = "请分析这段时间的财务状况"  # 用户提问，默认为通用分析指令
-    start_date: Optional[str] = None  # 分析起始日期
-    end_date: Optional[str] = None  # 分析结束日期
-
-# === 更新请求模型 ===
-class AnalysisRequest(BaseModel):
     model_name: str
     user_query: str
     start_date: Optional[str] = None
     end_date: Optional[str] = None
-    history: List[Dict[str, str]] =None
+    history: Optional[List[Dict[str, str]]] = None
+    # 第三方 API 支持字段
+    use_custom_api: bool = False  # 是否使用自定义API
+    api_key: Optional[str] = None  # API 密钥
+    api_base: Optional[str] = None  # 自定义 API 代理地址 (如: https://api.deepseek.com/v1)
 
 # --- 接口定义 ---
 @app.get("/api/models")
@@ -78,6 +75,19 @@ def get_records():
     用于前端图表展示和数据列表渲染
     """
     return database.get_all_records()
+
+@app.get("/api/knowledge/status")
+def get_knowledge_status():
+    """
+        获取ollama是否运行
+        用于决定是本地运行大模型还是采用API交流
+    """
+    exists = ai_engine.check_kb_exists()
+    ollama_alive = ai_engine.check_ollama_alive() # 获取存活状态
+    return {
+        "exists": exists,
+        "ollama_active": ollama_alive
+    }
 
 @app.post("/api/records")
 def add_record(record: RecordItem):
@@ -131,10 +141,8 @@ def chat_with_finance(req: AnalysisRequest):
     else:
         financial_summary = database.get_financial_summary_text()
 
-    # 2. 【关键修正】处理 history 为 None 的情况
     # 如果前端没传 history 或者传了 null，这里将其转为空列表 []
     safe_history = req.history if req.history is not None else []
-
     print(f"📊 收到请求 | 历史消息数: {len(safe_history)} | 当前问题: {req.user_query}")
 
     # 3. 调用 AI Agent
@@ -142,7 +150,11 @@ def chat_with_finance(req: AnalysisRequest):
         model_name=req.model_name,
         data_summary=financial_summary,
         user_query=req.user_query,
-        chat_history=safe_history  # 使用处理过的 safe_history
+        chat_history=safe_history,
+        # 用户采用了API调用模型存储的信息
+        use_custom_api=req.use_custom_api,  # <--- 新增
+        api_key=req.api_key,  # <--- 新增
+        api_base=req.api_base  # <--- 新增
     )
 
     return {"reply": response_text}

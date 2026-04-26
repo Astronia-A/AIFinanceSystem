@@ -8,7 +8,7 @@
       <div class="control-panel">
         <div class="panel-header">
           <div class="header-title">
-            <h3>🤖 AI 审计师</h3>
+            <h3>AI 审计师</h3>
             <span class="status-dot" :class="{ online: appState.avatar.connected }"></span>
           </div>
 
@@ -22,44 +22,57 @@
           </button>
         </div>
 
-        <!-- === 新增：数字人凭证配置区 (可折叠) === -->
-        <div class="auth-settings">
-          <div class="setting-toggle" @click="showAuth = !showAuth">
-            <span class="toggle-title">🔑 数字人 SDK 配置 (AppID/Secret)</span>
-            <span class="toggle-icon">{{ showAuth ? '▼' : '▶' }}</span>
-          </div>
-          <!-- 展开后的输入框 -->
-          <div class="setting-content" v-show="showAuth">
-            <input
-              type="text"
-              v-model="appState.avatar.appId"
-              placeholder="请输入 App ID"
-              class="dark-input config-input"
-              :disabled="appState.avatar.connected"
-            >
-            <input
-              type="password"
-              v-model="appState.avatar.appSecret"
-              placeholder="请输入 App Secret"
-              class="dark-input config-input"
-              :disabled="appState.avatar.connected"
-            >
-            <div v-if="!appState.avatar.connected" class="config-tip">
-              * 连接前请务必填写魔珐星云授权信息
+        <!-- === 数字人凭证配置区 (可折叠) === -->
+        <div class="settings-accordion">
+          
+          <!-- 1. 数字人凭证折叠框 -->
+          <div class="accordion-item">
+            <div class="accordion-header" @click="showAvatarConfig = !showAvatarConfig">
+              <span> 魔珐星云凭证配置</span>
+              <span class="toggle-icon">{{ showAvatarConfig ? '▼' : '▶' }}</span>
+            </div>
+            <div class="accordion-body" v-show="showAvatarConfig">
+              <input type="text" v-model="appState.avatar.appId" placeholder="输入 App ID" class="dark-input config-input" :disabled="appState.avatar.connected">
+              <input type="password" v-model="appState.avatar.appSecret" placeholder="输入 App Secret" class="dark-input config-input" :disabled="appState.avatar.connected">
             </div>
           </div>
+
+          <!-- 2. 大模型 API 折叠框 -->
+          <div class="accordion-item">
+            <div class="accordion-header" @click="showApiConfig = !showApiConfig">
+              <span>云端大模型 API 配置</span>
+              <span class="toggle-icon">{{ showApiConfig ? '▼' : '▶' }}</span>
+            </div>
+            <div class="accordion-body" v-show="showApiConfig">
+              <label class="checkbox-label">
+                <input type="checkbox" v-model="appState.llm.useCustomApi">
+                开启云端模型 (免本地AI部署)
+              </label>
+              <div v-if="appState.llm.useCustomApi" class="api-config-box">
+                <input type="text" v-model="appState.llm.apiBase" placeholder="API Base URL (如: https://api.deepseek.com/v1)" class="dark-input config-input">
+                <input type="password" v-model="appState.llm.apiKey" placeholder="API Key (sk-...)" class="dark-input config-input">
+                <input type="text" v-model="appState.llm.customModel" placeholder="模型名称 (如: deepseek-chat)" class="dark-input config-input">
+              </div>
+            </div>
+          </div>
+          
         </div>
 
         <!-- 上下文设置区 (模型 & 时间) -->
         <div class="context-settings">
           <div class="setting-row">
-            <label>🧠 模型</label>
-            <select v-model="selectedModel" class="dark-select">
+            <label>模型</label>
+            <!-- 动态判断：如果开启了云端API，显示文本提示；否则显示 Ollama 下拉框 -->
+            <div v-if="appState.llm.useCustomApi" class="model-badge">
+              🌐 云端 API ({{ appState.llm.customModel || '未指定' }})
+            </div>
+            <select v-else v-model="selectedModel" class="dark-select">
               <option v-for="m in models" :key="m" :value="m">{{ m }}</option>
             </select>
           </div>
           <div class="setting-row">
-            <label>📅 时间</label>
+            <label>时间</label>
+            <!-- 时间输入框保持不变 -->
             <div class="date-inputs">
               <input type="date" v-model="dateRange.start" class="dark-input">
               <span>至</span>
@@ -67,9 +80,7 @@
             </div>
           </div>
           <div class="quick-dates">
-            <span @click="setPreset(30)">近30天</span>
-            <span @click="setPreset(90)">近3月</span>
-            <span @click="setPreset(365)">近1年</span>
+            <span @click="setPreset(30)">近30天</span><span @click="setPreset(90)">近3月</span><span @click="setPreset(365)">近1年</span>
           </div>
         </div>
 
@@ -166,10 +177,8 @@ const userInput = ref('')
 const isLoading = ref(false)
 const isSpeaking = ref(false)
 const isConnecting = ref(false)
-
-// 新增：控制配置区域的展开和折叠，如果没有连上默认展开
-const showAuth = ref(!appState.avatar.connected)
-
+const showAvatarConfig = ref(!appState.avatar.connected) 
+const showApiConfig = ref(false)
 interface ChatMsg { role: 'user' | 'ai' | 'system_notice'; content: string }
 const chatMessages = ref<ChatMsg[]>([])
 const chatBox = ref<HTMLElement | null>(null)
@@ -184,17 +193,6 @@ onMounted(() => {
   setPreset(30)
 })
 
-// === 模型与时间监听 (保留你之前的优秀逻辑) ===
-watch(selectedModel, (newVal, oldVal) => {
-  if (newVal !== oldVal && oldVal !== '') {
-    chatMessages.value.push({
-      role: 'system_notice',
-      content: `🔄 已切换大脑为 ${newVal}，我们可以继续刚才的话题。`
-    })
-    scrollToBottom()
-  }
-})
-
 watch(dateRange, () => {
   if (chatMessages.value.length === 0) return
   chatMessages.value =[]
@@ -203,29 +201,27 @@ watch(dateRange, () => {
 // === 连接/断开逻辑 (增加校验和自动折叠) ===
 async function toggleConnection() {
   if (isConnecting.value) return
-
-  // 校验：如果准备连接，但没有输入 ID 或 Secret
+  
   if (!appState.avatar.connected) {
     if (!appState.avatar.appId.trim() || !appState.avatar.appSecret.trim()) {
-      addSystemMessage("⚠️ 请先在上方配置数字人的 App ID 和 App Secret。")
-      showAuth.value = true // 强制展开输入框提示用户
+      addSystemMessage("⚠️ 请先展开上方的【魔珐星云凭证配置】填写 AppID 和 Secret。")
+      showAvatarConfig.value = true // 强制展开输入框提醒
       return
     }
   }
 
   isConnecting.value = true
-
   try {
     if (appState.avatar.connected) {
       appStore.disconnectAvatar()
-      addSystemMessage("🔌 已断开与数字人的连接。")
+      addSystemMessage("🔌 已断开与顾问的连接。")
     } else {
       await appStore.connectAvatar()
-      addSystemMessage("🟢 数字人连接成功！请开始提问。")
-      showAuth.value = false // 连接成功后，自动折叠配置区，节省空间
+      addSystemMessage("🟢 顾问连接成功！请开始提问。")
+      showAvatarConfig.value = false // 连接成功后自动收起
     }
   } catch (e) {
-    addSystemMessage(`❌ 连接失败，请检查密钥是否正确: ${e}`)
+    addSystemMessage(`❌ 连接失败`)
   } finally {
     isConnecting.value = false
   }
@@ -248,22 +244,28 @@ async function sendQuery(text: string) {
   chatMessages.value.push({ role: 'user', content: text })
   scrollToBottom()
   isLoading.value = true
-
+  
   try {
     const historyPayload = chatMessages.value.slice(0, -1).map(msg => ({
-      role: msg.role === 'system_notice' ? 'ai' : msg.role, // 过滤掉系统通知给后端
+      role: msg.role === 'system_notice' ? 'ai' : msg.role,
       content: msg.content
     }))
 
+    // === 核心修改：透传用户自定义的 API 参数给后端 ===
     const res = await fetch(`${API_URL}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model_name: selectedModel.value,
+        // 如果开启自定义 API，使用 customModel；否则使用 Ollama下拉框选中的 selectedModel
+        model_name: appState.llm.useCustomApi ? appState.llm.customModel : selectedModel.value,
         user_query: text,
         start_date: dateRange.start,
         end_date: dateRange.end,
-        history: historyPayload
+        history: historyPayload,
+        // 透传 API 配置
+        use_custom_api: appState.llm.useCustomApi,
+        api_key: appState.llm.apiKey,
+        api_base: appState.llm.apiBase
       })
     })
 
@@ -274,7 +276,7 @@ async function sendQuery(text: string) {
     scrollToBottom()
     speakText(reply)
   } catch (e) {
-    chatMessages.value.push({ role: 'ai', content: "⚠️ 分析出错，请检查后端服务。" })
+    chatMessages.value.push({ role: 'ai', content: "⚠️ 分析出错，请检查配置或后端服务。" })
   } finally {
     isLoading.value = false
   }
@@ -340,12 +342,10 @@ onUnmounted(() => stopSpeaking())
 </script>
 
 <style scoped>
-/* 整体布局保持不变 */
 .avatar-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; z-index: 2000; display: flex; flex-direction: column; }
 .close-btn { position: absolute; top: 20px; right: 20px; z-index: 2001; background: rgba(255, 59, 48, 0.8); color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
 .content-container { display: flex; width: 100%; height: 100%; }
 
-/* 左侧控制面板 */
 .control-panel { width: 420px; background: #1a1a1a; border-right: 1px solid #333; display: flex; flex-direction: column; color: #eee; box-shadow: 5px 0 15px rgba(0,0,0,0.5); z-index: 10; }
 .panel-header { padding: 15px 20px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; background: #222; }
 .header-title { display: flex; align-items: center; gap: 8px; }
@@ -360,20 +360,8 @@ onUnmounted(() => stopSpeaking())
 .btn-disconnect:hover { border-color: #f56c6c; color: #f56c6c; }
 .conn-btn:disabled { opacity: 0.6; cursor: wait; }
 
-/* === 新增：SDK 授权配置区样式 === */
-.auth-settings {
-  background: #1f1f1f;
-  border-bottom: 1px solid #333;
-}
-.setting-toggle {
-  padding: 10px 20px;
-  cursor: pointer;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #252525;
-  user-select: none;
-}
+.auth-settings { background: #1f1f1f; border-bottom: 1px solid #333;}
+.setting-toggle { padding: 10px 20px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #252525;  user-select: none;}
 .setting-toggle:hover { background: #2a2a2a; }
 .toggle-title { font-size: 13px; color: #aaa; font-weight: bold; }
 .toggle-icon { font-size: 10px; color: #888; }
@@ -382,7 +370,6 @@ onUnmounted(() => stopSpeaking())
 .config-input:disabled { opacity: 0.5; cursor: not-allowed; }
 .config-tip { font-size: 12px; color: #f56c6c; }
 
-/* 上下文设置 */
 .context-settings { padding: 15px 20px; border-bottom: 1px solid #333; background: #1f1f1f; }
 .setting-row { display: flex; align-items: center; margin-bottom: 10px; }
 .setting-row label { width: 50px; color: #888; font-size: 13px; }
@@ -392,7 +379,6 @@ onUnmounted(() => stopSpeaking())
 .quick-dates { display: flex; gap: 10px; padding-left: 50px; }
 .quick-dates span { font-size: 12px; color: #409eff; cursor: pointer; text-decoration: underline; }
 
-/* 聊天记录区 */
 .chat-history { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; background: #1a1a1a; }
 .empty-chat { text-align: center; color: #fff; margin-top: 60px; font-size: 15px; opacity: 0.9; }
 .welcome-icon { font-size: 40px; margin-bottom: 15px; }
@@ -409,7 +395,6 @@ onUnmounted(() => stopSpeaking())
 
 .system-notice-bubble { width: 100%; text-align: center; font-size: 12px; color: #888; margin: 10px 0; background: rgba(255, 255, 255, 0.05); padding: 4px; border-radius: 4px; }
 
-/* 输入区 */
 .input-area { padding: 15px 20px; background: #222; border-top: 1px solid #333; }
 .quick-prompts { display: flex; gap: 8px; margin-bottom: 10px; overflow-x: auto; padding-bottom: 5px; }
 .quick-prompts button { background: #333; border: 1px solid #444; color: #ccc; padding: 4px 10px; border-radius: 15px; cursor: pointer; font-size: 12px; white-space: nowrap; }
@@ -425,10 +410,27 @@ textarea:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .stop-btn { width: 100%; margin-top: 10px; background: #f56c6c; color: white; border: none; padding: 5px; border-radius: 4px; cursor: pointer; }
 
-/* 右侧舞台 */
 .avatar-stage { flex: 1; height: 100%; background: #000; position: relative; display: flex; flex-direction: column; }
 .avatar-stage :deep(.avatar-render), .avatar-stage :deep(.sdk-container) { width: 100% !important; height: 100% !important; flex: 1; }
 
 .offline-mask { position: absolute; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; display: flex; justify-content: center; align-items: center; color: white; text-align: center; }
 .offline-content p { margin: 10px 0; color: #aaa; }
+
+.config-section-title { font-size: 13px; color: #409eff; font-weight: bold; margin-bottom: 5px; }
+.checkbox-label { font-size: 13px; color: #ccc; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+.api-config-box { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; padding-left: 10px; border-left: 2px solid #444; }
+.model-badge { background: #3b82f6; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+
+.settings-accordion { border-bottom: 1px solid #333; background: #1f1f1f;}
+.accordion-item {  border-bottom: 1px solid #2a2a2a;}
+.accordion-item:last-child {  border-bottom: none;}
+.accordion-header { padding: 12px 20px; cursor: pointer; display: flex; justify-content: space-between;
+  align-items: center; background: #222; user-select: none; font-size: 13px; color: #bbb; transition: background 0.2s;}
+.accordion-header:hover { background: #2a2a2a; color: #fff;}
+.toggle-icon { font-size: 10px; color: #666;}
+.accordion-body { padding: 15px 20px; background: #1a1a1a; display: flex; flex-direction: column; gap: 10px;}
+.config-input { width: 100%; box-sizing: border-box; font-size: 13px;}
+.config-input:disabled { opacity: 0.4; cursor: not-allowed;}
+.checkbox-label { font-size: 13px; color: #aaa; cursor: pointer; display: flex; align-items: center; gap: 8px;}
+.api-config-box { display: flex; flex-direction: column; gap: 8px; margin-top: 5px; padding-left: 12px; border-left: 2px solid #409eff;}
 </style>

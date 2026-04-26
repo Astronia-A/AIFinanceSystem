@@ -6,5 +6,7 @@ openpyxl
 langchain 
 langchain-community 
 langchain-ollama 
-faiss-cpu pypdf 
+langchain-openai
+faiss-cpu 
+pypdf 
 requests

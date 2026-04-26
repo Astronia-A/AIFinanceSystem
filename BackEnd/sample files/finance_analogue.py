@@ -12,8 +12,8 @@ def generate_account_excel(filename="account.xlsx"):
     ws.append(["项目", "日期", "金额"])
 
     # 日期范围
-    start_date = date(2020, 1, 1)
-    end_date = date(2025, 12, 31)
+    start_date = date(2026, 1, 1)
+    end_date = date(2026, 6, 30)
 
     # 收入 / 支出项目
     income_projects = [
@@ -28,18 +28,21 @@ def generate_account_excel(filename="account.xlsx"):
         "运维成本","法律与咨询费用","税费支出","第三方服务外包费用","产品售后与客户支持成本","折旧与摊销","办公日常费用"]
 
     current_date = start_date
+    total_amount = 0
 
-    while current_date <= end_date:
+    while current_date <= end_date and total_amount < 100:
         # 每天随机生成 0~3 条流水
         for _ in range(random.randint(0, 3)):
             if random.choice([True, False]):
                 # 收入
                 project = random.choice(income_projects)
                 amount = round(random.uniform(10, 200), 2) * 100
+                total_amount+=1
             else:
                 # 支出
                 project = random.choice(expense_projects)
                 amount = -round(random.uniform(5, 150), 2) * 100
+                total_amount += 1
 
             ws.append([
                 project,

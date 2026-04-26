@@ -2,13 +2,22 @@
   <div class="kb-container">
     <div class="card upload-card">      
       <!-- 状态提示条 -->
-      <div v-if="kbExists" class="status-banner success">
+       <div v-if="!ollamaActive" class="status-banner error">
+        <span class="status-icon">🛑</span>
+        <div class="status-text">
+          <strong>未检测到本地大模型环境 (Ollama)</strong>
+          <small>当前为“纯 API 分析模式”。若需解锁本地文档索引功能，请安装 Ollama 服务。</small>
+        </div>
+      </div>
+
+      <div v-else-if="kbExists" class="status-banner success">
         <span class="status-icon">✅</span>
         <div class="status-text">
           <strong>系统已存在知识库</strong>
           <small>您可以直接进行 AI 分析，也可以上传新文件覆盖旧知识库。</small>
         </div>
       </div>
+
       <div v-else class="status-banner warning">
         <span class="status-icon">⚠️</span>
         <div class="status-text">
@@ -22,12 +31,13 @@
         请上传 PDF 或 TXT 文件（如企业审计准则、内部财务规定等）。<br>
         AI 将会阅读这些文件，并建立本地向量索引。
       </p>
-      <!-- 上传区域 -->
+      <!-- 上传区域 当有本地ollama运行时才启用-->
       <div 
         class="drop-zone" 
+        :class="{ 'disabled-zone': !ollamaActive }"
         @dragover.prevent 
-        @drop.prevent="handleDrop"
-        @click="triggerFileInput"
+        @drop.prevent="ollamaActive && handleDrop($event)"
+        @click="ollamaActive && triggerFileInput()"
       >
         <input 
           type="file" 
@@ -60,18 +70,19 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const isUploading = ref(false)
 const message = ref('')
 const msgType = ref('info')
-
-// === 检查知识库存在状态 ===
 const kbExists = ref(false)
+const ollamaActive = ref(true) 
+
 async function checkStatus() {
   try {
     const res = await fetch(`${API_URL}/api/knowledge/status`)
     if (res.ok) {
       const data = await res.json()
       kbExists.value = data.exists
+      ollamaActive.value = data.ollama_active // 读取后端探测的结果
     }
   } catch (e) {
-    console.error("无法获取知识库状态")
+    console.error("无法获取状态")
   }
 }
 
@@ -160,5 +171,7 @@ h2 { color: #1e293b; margin-bottom: 10px; }
   margin: 0 auto 10px;
   animation: spin 1s linear infinite;
 }
+.status-banner.error { background: #fef2f2; border-bottom: 1px solid #fca5a5; color: #b91c1c; }
+.disabled-zone { opacity: 0.5; cursor: not-allowed !important; border-color: #e2e8f0 !important; background: #f1f5f9 !important; }
 @keyframes spin { to { transform: rotate(360deg); } }
 </style>

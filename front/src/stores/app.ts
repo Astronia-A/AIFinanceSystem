@@ -8,7 +8,7 @@ import { llmService } from '../services/llm'
 // 应用状态
 export const appState = reactive<AppState>({
   avatar: {
-    //此处请输入自己的数字人id 密码等信息！
+    //此处将由页面输入参数
     appId: '',
     appSecret: '',
     connected: false,
@@ -23,8 +23,11 @@ export const appState = reactive<AppState>({
     isListening: false
   },
   llm: {
-    model: 'qwen2.5:7b', // 默认模型
-    apiKey: ''
+    model: 'qwen2.5:7b', 
+    apiKey: '',
+    useCustomApi: false, // 是否开启第三方云端大模型
+    apiBase: '',         // 自定义 API 的 Base URL
+    customModel: ''      // 自定义 API 的模型名称 (比如 deepseek-chat)
   },
   ui: {
     text: '',
@@ -184,8 +187,7 @@ export class AppStore {
    */
   async sendMessage(): Promise<string | undefined> {
     const { llm, ui, avatar } = appState
-    
-    // 【修改点】移除了 validateConfig(llm, ['apiKey']) 校验
+
     // 只要有输入文本且数字人已连接即可发送
     if (!ui.text || !avatar.instance) {
       return
@@ -232,10 +234,6 @@ export class AppStore {
 
       // 处理剩余的字符 (循环结束后的残余文本)
       if (buffer.length > 0) {
-        // 这里原代码是 buffer[0]，如果是单个字符逻辑可能不对，建议直接用 buffer
-        // 但为了兼容原 Demo 逻辑，如果 buffer 是字符串，buffer[0] 只是第一个字。
-        // 根据 splitSentence 的逻辑，buffer 是剩余的字符串。
-        // 这里修正为 buffer，确保剩余的话都能被念出来
         const ssml = generateSSML(buffer) 
         
         if (isFirstChunk) {
